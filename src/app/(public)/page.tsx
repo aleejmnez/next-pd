@@ -74,7 +74,7 @@ async function getCategories() {
   }
 }
 
-export default export default function HomePage() {
+export default function HomePage() {
   return (
     <Suspense fallback={<HomePageFallback />}>
       <HomePageContent />

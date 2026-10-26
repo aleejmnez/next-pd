@@ -1,4 +1,5 @@
 import React from 'react'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { connection } from 'next/server'
@@ -25,7 +26,28 @@ interface AuctionsPageProps {
   }>
 }
 
-export default async function AuctionsCatalogPage({ searchParams }: AuctionsPageProps) {
+export default function AuctionsCatalogPage(props: AuctionsPageProps) {
+  return (
+    <Suspense fallback={<AuctionsCatalogFallback />}>
+      <AuctionsCatalogContent {...props} />
+    </Suspense>
+  )
+}
+
+function AuctionsCatalogFallback() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        Catálogo de Subastas
+      </h1>
+      <p className="text-sm text-slate-400" role="status">
+        Cargando subastas...
+      </p>
+    </div>
+  )
+}
+
+async function AuctionsCatalogContent({ searchParams }: AuctionsPageProps) {
   await connection()
   const { categoryId, status, query } = await searchParams
 

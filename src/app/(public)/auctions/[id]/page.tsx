@@ -1,4 +1,5 @@
 import React from 'react'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
@@ -27,7 +28,25 @@ interface AuctionDetailPageProps {
   params: Promise<{ id: string }>
 }
 
-export default async function AuctionDetailPage({ params }: AuctionDetailPageProps) {
+export default function AuctionDetailPage(props: AuctionDetailPageProps) {
+  return (
+    <Suspense fallback={<AuctionDetailFallback />}>
+      <AuctionDetailContent {...props} />
+    </Suspense>
+  )
+}
+
+function AuctionDetailFallback() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <p className="text-sm text-slate-400" role="status">
+        Cargando detalle de la subasta...
+      </p>
+    </div>
+  )
+}
+
+async function AuctionDetailContent({ params }: AuctionDetailPageProps) {
   await connection()
   const { id } = await params
 
