@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse, connection } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getComputedAuctionStatus } from '@/lib/auctions'
 
 export async function GET(request: NextRequest) {
   try {
-    await connection()
     const categoryId = request.nextUrl.searchParams.get('categoryId')
     const statusParam = request.nextUrl.searchParams.get('status')
     const query = request.nextUrl.searchParams.get('query')

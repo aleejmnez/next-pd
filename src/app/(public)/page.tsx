@@ -1,4 +1,5 @@
 import React from 'react'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { prisma } from '@/lib/prisma'
@@ -73,7 +74,39 @@ async function getCategories() {
   }
 }
 
-export default async function HomePage() {
+export default export default function HomePage() {
+  return (
+    <Suspense fallback={<HomePageFallback />}>
+      <HomePageContent />
+    </Suspense>
+  )
+}
+
+function HomePageFallback() {
+  return (
+    <div className="space-y-24 pb-20 overflow-hidden">
+      <section className="relative pt-12 pb-20 md:pt-20 md:pb-28">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto space-y-6">
+            <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-[1.1]">
+              Subastas Exclusivas de{' '}
+              <span className="gradient-text-gold">Coleccionables</span>
+            </h1>
+            <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto">
+              Descubre cartas raras, relojes históricos, vinilos de primera edición y piezas de museo.
+              Navega en modo público con total transparencia de ofertas y estados en tiempo real.
+            </p>
+            <p className="text-sm text-slate-400" role="status">
+              Cargando subastas destacadas...
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+async function HomePageContent() {
   const [featuredAuctions, categories] = await Promise.all([
     getFeaturedAuctions(),
     getCategories(),
