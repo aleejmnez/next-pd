@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS SEGÚN REGLAS DE NEGOCIO ---
+enum Role {
+  USER
+  ADMIN
+}
+
+enum AuctionStatus {
+  ACTIVE    // Activa
+  CLOSED    // Cerrada (con ganador)
+  DESERTED  // Desierta (sin ofertas al llegar la fecha de cierre)
+  CANCELLED // Cancelada (por vendedor o administrador)
+}
+
+// --- MODELO: User ---
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  fullName      String?
+  passwordHash  String
+  role          Role           @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relaciones
+  refreshTokens RefreshToken[]
+  auctions      Auction[]      @relation("UserAuctions")
+  bids          Bid[]          @relation("UserBids")
+}
+
+// --- MODELO: RefreshToken (Requisito de Auth seguro) ---
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// --- MODELO: Category ---
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+
+  // Relaciones
+  auctions  Auction[]
+}
+
+// --- MODELO: Auction ---
+model Auction {
+  id                 String        @id @default(uuid())
+  title              String
+  description        String?
+  imageUrl           String?
+  initialPrice       Decimal       @db.Decimal(10, 2) // Precio inicial mayor a cero
+  minIncrement       Decimal       @db.Decimal(10, 2) // Incremento mínimo mayor a cero
+  startsAt           DateTime
+  closesAt           DateTime
+  status             AuctionStatus @default(ACTIVE)
+  cancellationReason String?       // Obligatorio si el admin cancela la subasta
+  
+  sellerId           String
+  seller             User          @relation("UserAuctions", fields: [sellerId], references: [id], onDelete: Cascade)
+  
+  categoryId         String
+  category           Category      @relation(fields: [categoryId], references: [id])
+  
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relaciones
+  bids               Bid[]
+}
+
+// --- MODELO: Bid (Ofertas) ---
+model Bid {
+  id             String   @id @default(uuid())
+  amount         Decimal  @db.Decimal(10, 2) // Monto de la oferta
+  
+  bidderId       String
+  bidder         User     @relation("UserBids", fields: [bidderId], references: [id], onDelete: Cascade)
+  
+  auctionId      String
+  auction        Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  
+  idempotencyKey String?  @unique // Soporte para punto extra de idempotencia en ofertas
+  createdAt      DateTime @default(now())
+}
