@@ -1,11 +1,14 @@
 import type { User } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AppError, errorResponse } from '@/lib/errors'
+import { registerSchema, type RegisterInput } from '@/lib/validations'
 import {
   hashPassword,
   hashToken,
   generateAccessToken,
   generateRefreshToken,
+  getRefreshTokenExpiresAt,
   getCookieOptions,
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
@@ -14,73 +17,30 @@ import { Role } from '@prisma/client'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body: unknown = await request.json()
-
-    if (
-      typeof body !== 'object' ||
-      body === null ||
-      !('email' in body) ||
-      typeof body.email !== 'string' ||
-      !('password' in body) ||
-      typeof body.password !== 'string' ||
-      !('fullName' in body) ||
-      typeof body.fullName !== 'string'
-    ) {
-      return NextResponse.json(
-        { error: 'Debe ingresar nombre, correo y contraseña' },
-        { status: 400 }
-      )
-    }
-
-    const email: string = body.email
-    const password: string = body.password
-    const fullName: string = body.fullName.trim()
-    const normalizedEmail: string = email.toLowerCase().trim()
-
-    if (fullName.length === 0) {
-      return NextResponse.json(
-        { error: 'Debe ingresar su nombre' },
-        { status: 400 }
-      )
-    }
-
-    if (!normalizedEmail.includes('@')) {
-      return NextResponse.json(
-        { error: 'Debe ingresar un correo electrónico válido' },
-        { status: 400 }
-      )
-    }
-
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'La contraseña debe tener al menos 6 caracteres' },
-        { status: 400 }
-      )
-    }
+    const body: unknown = await request.json().catch((): undefined => undefined)
+    const input: RegisterInput = registerSchema.parse(body)
+    const normalizedEmail: string = input.email.toLowerCase()
 
     const existing: User | null = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     })
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'El correo electrónico ya se encuentra registrado' },
-        { status: 409 }
-      )
+      throw new AppError('CONFLICT', 'El correo electrónico ya se encuentra registrado')
     }
 
-    const hashedPassword: string = await hashPassword(password)
+    const hashedPassword: string = await hashPassword(input.password)
     const user: User = await prisma.user.create({
       data: {
         email: normalizedEmail,
-        name: fullName,
+        name: input.fullName,
         password: hashedPassword,
         role: Role.USER,
       },
     })
 
     // Generar tokens
-    const accessToken = await generateAccessToken({
+    const accessToken: string = await generateAccessToken({
       userId: user.id,
       email: user.email,
       role: user.role,
@@ -89,7 +49,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const refreshToken: string = await generateRefreshToken({ userId: user.id })
     const tokenHash: string = hashToken(refreshToken)
-    const expiresAt: Date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    const expiresAt: Date = getRefreshTokenExpiresAt()
 
     // Guardar refresh token hasheado en BD
     await prisma.refreshToken.create({
@@ -120,9 +80,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return response
   } catch (error: unknown) {
     console.error('Error in /api/auth/register:', error)
-    return NextResponse.json(
-      { error: 'Ocurrió un error inesperado al registrar el usuario' },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }

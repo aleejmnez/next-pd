@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { AppError, errorResponse } from '@/lib/errors'
+import { getCurrentUser, type TokenPayload } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   try {
-    const user = await getCurrentUser()
+    const user: TokenPayload | null = await getCurrentUser()
     if (!user) {
-      return NextResponse.json(
-        { user: null },
-        { status: 200 }
-      )
+      throw new AppError('UNAUTHORIZED', 'No hay una sesión activa')
     }
 
     return NextResponse.json({
@@ -19,11 +17,8 @@ export async function GET() {
         fullName: user.fullName,
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in /api/auth/me:', error)
-    return NextResponse.json(
-      { error: 'Error al obtener la sesión' },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }

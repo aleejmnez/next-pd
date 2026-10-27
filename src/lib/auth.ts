@@ -2,15 +2,49 @@ import { SignJWT, jwtVerify } from 'jose'
 import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
-import { prisma } from './prisma'
-import { Role } from '@prisma/client'
+import type { Role } from '@prisma/client'
 
-const ACCESS_SECRET = new TextEncoder().encode(
-  process.env.JWT_ACCESS_SECRET || 'default-access-secret-bidhub-2026-minimum-32-chars'
-)
-const REFRESH_SECRET = new TextEncoder().encode(
-  process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-bidhub-2026-minimum-32-chars'
-)
+type TokenLifetime = {
+  value: string
+  seconds: number
+}
+
+function getJwtSecret(environmentName: string): Uint8Array {
+  const secret: string | undefined = process.env[environmentName]
+
+  if (!secret || secret.length < 32) {
+    throw new Error(`${environmentName} debe tener al menos 32 caracteres`)
+  }
+
+  return new TextEncoder().encode(secret)
+}
+
+function getTokenLifetime(environmentName: string): TokenLifetime {
+  const value: string | undefined = process.env[environmentName]
+  const match: RegExpExecArray | null = value
+    ? /^([1-9]\d*)(s|m|h|d)$/.exec(value)
+    : null
+
+  if (!value || !match) {
+    throw new Error(`${environmentName} debe usar un formato como 15m o 7d`)
+  }
+
+  const amount: number = Number(match[1])
+  const unit: string = match[2]
+  const secondsPerUnit: Record<string, number> = {
+    s: 1,
+    m: 60,
+    h: 60 * 60,
+    d: 24 * 60 * 60,
+  }
+  const seconds: number = amount * secondsPerUnit[unit]
+
+  if (!Number.isSafeInteger(seconds)) {
+    throw new Error(`${environmentName} está fuera de rango`)
+  }
+
+  return { value, seconds }
+}
 
 export const ACCESS_COOKIE_NAME = 'bidhub_access_token'
 export const REFRESH_COOKIE_NAME = 'bidhub_refresh_token'
@@ -39,27 +73,29 @@ export function hashToken(token: string): string {
 
 // Crear Access Token (15 minutos)
 export async function generateAccessToken(payload: TokenPayload): Promise<string> {
+  const lifetime: TokenLifetime = getTokenLifetime('ACCESS_TOKEN_EXPIRES_IN')
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('15m')
-    .sign(ACCESS_SECRET)
+    .setExpirationTime(lifetime.value)
+    .sign(getJwtSecret('JWT_ACCESS_SECRET'))
 }
 
 // Crear Refresh Token (7 días)
 export async function generateRefreshToken(payload: { userId: string }): Promise<string> {
-  const randomJti = crypto.randomUUID()
+  const lifetime: TokenLifetime = getTokenLifetime('REFRESH_TOKEN_EXPIRES_IN')
+  const randomJti: string = crypto.randomUUID()
   return new SignJWT({ userId: payload.userId, jti: randomJti })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(REFRESH_SECRET)
+    .setExpirationTime(lifetime.value)
+    .sign(getJwtSecret('JWT_REFRESH_SECRET'))
 }
 
 // Verificar Access Token
 export async function verifyAccessToken(token: string): Promise<TokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, ACCESS_SECRET)
+    const { payload } = await jwtVerify(token, getJwtSecret('JWT_ACCESS_SECRET'))
     return payload as unknown as TokenPayload
   } catch {
     return null
@@ -69,7 +105,7 @@ export async function verifyAccessToken(token: string): Promise<TokenPayload | n
 // Verificar Refresh Token
 export async function verifyRefreshToken(token: string): Promise<{ userId: string; jti?: string } | null> {
   try {
-    const { payload } = await jwtVerify(token, REFRESH_SECRET)
+    const { payload } = await jwtVerify(token, getJwtSecret('JWT_REFRESH_SECRET'))
     return payload as unknown as { userId: string; jti?: string }
   } catch {
     return null
@@ -77,16 +113,24 @@ export async function verifyRefreshToken(token: string): Promise<{ userId: strin
 }
 
 // Opciones de Cookie seguras (Requisito 7: httpOnly, secure, sameSite)
-export function getCookieOptions(isRefresh = false) {
-  const isProduction = process.env.NODE_ENV === 'production'
-  const maxAge = isRefresh ? 7 * 24 * 60 * 60 : 15 * 60 // 7 días vs 15 minutos
+export function getRefreshTokenExpiresAt(): Date {
+  const lifetime: TokenLifetime = getTokenLifetime('REFRESH_TOKEN_EXPIRES_IN')
+  return new Date(Date.now() + lifetime.seconds * 1000)
+}
+
+export function getCookieOptions(isRefresh: boolean = false) {
+  const environmentName: string = isRefresh
+    ? 'REFRESH_TOKEN_EXPIRES_IN'
+    : 'ACCESS_TOKEN_EXPIRES_IN'
+  const lifetime: TokenLifetime = getTokenLifetime(environmentName)
+  const isProduction: boolean = process.env.NODE_ENV === 'production'
 
   return {
     httpOnly: true,
     secure: isProduction,
     sameSite: 'lax' as const,
     path: '/',
-    maxAge,
+    maxAge: lifetime.seconds,
   }
 }
 
@@ -95,33 +139,7 @@ export async function getCurrentUser(): Promise<TokenPayload | null> {
   const cookieStore = await cookies()
   const accessToken = cookieStore.get(ACCESS_COOKIE_NAME)?.value
 
-  if (accessToken) {
-    const payload = await verifyAccessToken(accessToken)
-    if (payload) return payload
-  }
+  if (!accessToken) return null
 
-  // Si el access token expiró pero hay refresh token, intentar renovar
-  const refreshToken = cookieStore.get(REFRESH_COOKIE_NAME)?.value
-  if (!refreshToken) return null
-
-  const refreshPayload = await verifyRefreshToken(refreshToken)
-  if (!refreshPayload) return null
-
-  const tokenHash = hashToken(refreshToken)
-  const storedToken = await prisma.refreshToken.findUnique({
-    where: { tokenHash },
-    include: { user: true },
-  })
-
-  if (!storedToken || storedToken.revokedAt || storedToken.expiresAt < new Date()) {
-    return null
-  }
-
-  const user = storedToken.user
-  return {
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-    fullName: user.fullName,
-  }
+  return verifyAccessToken(accessToken)
 }

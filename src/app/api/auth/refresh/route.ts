@@ -1,78 +1,83 @@
+import type { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AppError, errorResponse } from '@/lib/errors'
 import {
   verifyRefreshToken,
   hashToken,
   generateAccessToken,
   generateRefreshToken,
+  getRefreshTokenExpiresAt,
   getCookieOptions,
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
 } from '@/lib/auth'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME)?.value
+    const refreshToken: string | undefined = request.cookies.get(REFRESH_COOKIE_NAME)?.value
 
     if (!refreshToken) {
-      return NextResponse.json(
-        { error: 'No se proporcionó refresh token' },
-        { status: 401 }
-      )
+      throw new AppError('UNAUTHORIZED', 'No se proporcionó refresh token')
     }
 
     const payload = await verifyRefreshToken(refreshToken)
     if (!payload) {
-      return NextResponse.json(
-        { error: 'Refresh token inválido o expirado' },
-        { status: 401 }
-      )
+      throw new AppError('UNAUTHORIZED', 'Refresh token inválido o expirado')
     }
 
-    const tokenHash = hashToken(refreshToken)
+    const tokenHash: string = hashToken(refreshToken)
     const stored = await prisma.refreshToken.findUnique({
       where: { tokenHash },
       include: { user: true },
     })
 
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
-      return NextResponse.json(
-        { error: 'Token revocado o no encontrado' },
-        { status: 401 }
-      )
+    if (!stored || stored.isRevoked || stored.expiresAt <= new Date()) {
+      throw new AppError('UNAUTHORIZED', 'Token revocado o no encontrado')
     }
 
-    // Rotación de refresh token (revocar el anterior y crear uno nuevo)
-    await prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
-    })
-
-    const newAccessToken = await generateAccessToken({
+    const newAccessToken: string = await generateAccessToken({
       userId: stored.user.id,
       email: stored.user.email,
       role: stored.user.role,
-      fullName: stored.user.fullName,
+      fullName: stored.user.name,
     })
 
-    const newRefreshToken = await generateRefreshToken({ userId: stored.user.id })
-    const newTokenHash = hashToken(newRefreshToken)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    const newRefreshToken: string = await generateRefreshToken({ userId: stored.user.id })
+    const newTokenHash: string = hashToken(newRefreshToken)
+    const expiresAt: Date = getRefreshTokenExpiresAt()
 
-    await prisma.refreshToken.create({
-      data: {
-        tokenHash: newTokenHash,
-        userId: stored.user.id,
-        expiresAt,
-      },
-    })
+    const rotated: boolean = await prisma.$transaction(
+      async (transaction: Prisma.TransactionClient): Promise<boolean> => {
+        const revoked = await transaction.refreshToken.updateMany({
+          where: { id: stored.id, isRevoked: false },
+          data: { isRevoked: true },
+        })
 
-    const response = NextResponse.json({
+        if (revoked.count !== 1) return false
+
+        await transaction.refreshToken.create({
+          data: {
+            tokenHash: newTokenHash,
+            userId: stored.user.id,
+            expiresAt,
+          },
+        })
+
+        return true
+      }
+    )
+
+    if (!rotated) {
+      throw new AppError('UNAUTHORIZED', 'El refresh token ya fue utilizado')
+    }
+
+    const response: NextResponse = NextResponse.json({
       message: 'Token renovado con éxito',
       user: {
         id: stored.user.id,
         email: stored.user.email,
-        fullName: stored.user.fullName,
+        fullName: stored.user.name,
         role: stored.user.role,
       },
     })
@@ -81,11 +86,8 @@ export async function POST(request: NextRequest) {
     response.cookies.set(REFRESH_COOKIE_NAME, newRefreshToken, getCookieOptions(true))
 
     return response
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in /api/auth/refresh:', error)
-    return NextResponse.json(
-      { error: 'Error al renovar sesión' },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }

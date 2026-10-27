@@ -65,37 +65,40 @@ export default function RegisterPage() {
         router.push('/dashboard')
         router.refresh()
       }, 1000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (error: unknown) {
+      const errorMessage: string = error instanceof Error
+        ? error.message
+        : 'Error al registrar usuario'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="glass-panel p-8 sm:p-10 rounded-3xl border-slate-800 shadow-2xl space-y-6">
+    <div className="space-y-6 rounded-lg border border-emerald-100 bg-white p-8 shadow-sm sm:p-10">
       {/* Title */}
       <div className="text-center space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-          Crea tu cuenta en <span className="text-amber-400">CoSpace</span>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          Crea tu cuenta en <span className="text-emerald-700">CoSpace</span>
         </h1>
-        <p className="text-xs sm:text-sm text-slate-400">
+        <p className="text-xs sm:text-sm text-slate-600">
           Crea una cuenta para reservar espacios de coworking
         </p>
       </div>
 
       {/* Error alert */}
       {error && (
-        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-xs text-rose-300 animate-in fade-in">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+        <div className="p-3.5 rounded-md bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Success alert */}
       {success && (
-        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5 text-xs text-emerald-300 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+        <div className="p-3.5 rounded-md bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
           <span>¡Cuenta creada con éxito! Redirigiendo a tu panel...</span>
         </div>
       )}
@@ -104,7 +107,7 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Full Name */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-300 block">
+          <label className="text-xs font-semibold text-slate-700 block">
             Nombre Completo
           </label>
           <div className="relative">
@@ -115,14 +118,14 @@ export default function RegisterPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Ej. Carlos Mendoza"
-              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full rounded-md border border-emerald-200 bg-white py-3 pl-10 pr-4 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 sm:text-sm"
             />
           </div>
         </div>
 
         {/* Email */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-300 block">
+          <label className="text-xs font-semibold text-slate-700 block">
             Correo Electrónico
           </label>
           <div className="relative">
@@ -133,14 +136,14 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
-              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full rounded-md border border-emerald-200 bg-white py-3 pl-10 pr-4 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 sm:text-sm"
             />
           </div>
         </div>
 
         {/* Password */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-300 block">
+          <label className="text-xs font-semibold text-slate-700 block">
             Contraseña (mínimo 6 caracteres)
           </label>
           <div className="relative">
@@ -152,12 +155,12 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-11 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full rounded-md border border-emerald-200 bg-white py-3 pl-10 pr-11 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 sm:text-sm"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-1"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-emerald-800"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -166,7 +169,7 @@ export default function RegisterPage() {
 
         {/* Confirm Password */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-300 block">
+          <label className="text-xs font-semibold text-slate-700 block">
             Confirmar Contraseña
           </label>
           <div className="relative">
@@ -177,7 +180,7 @@ export default function RegisterPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full rounded-md border border-emerald-200 bg-white py-3 pl-10 pr-4 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 sm:text-sm"
             />
           </div>
         </div>
@@ -186,7 +189,7 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading || success}
-          className="w-full mt-2 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-bold text-sm text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-[0.99]"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
         >
           {loading ? (
             <>
@@ -204,11 +207,11 @@ export default function RegisterPage() {
 
       {/* Footer link to Login */}
       <div className="text-center pt-2">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-600">
           ¿Ya tienes una cuenta registrada?{' '}
           <Link
             href="/login"
-            className="font-bold text-amber-400 hover:text-amber-300 underline underline-offset-4"
+            className="font-bold text-emerald-700 underline underline-offset-4 hover:text-emerald-800"
           >
             Inicia sesión aquí
           </Link>

@@ -18,7 +18,11 @@ export type SpaceCreateInput = {
   isActive?: boolean
 }
 
-export type SpaceUpdateInput = Partial<SpaceCreateInput>
+export type SpaceUpdateInput = Partial<Omit<SpaceCreateInput, 'isActive'>>
+
+export type SpaceIdInput = {
+  id: string
+}
 
 export type BookingCreateInput = {
   spaceId: string
@@ -63,7 +67,7 @@ export const registerSchema: z.ZodType<RegisterInput> = z
   })
   .strict()
 
-export const spaceCreateSchema: z.ZodType<SpaceCreateInput> = z
+export const spaceCreateSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     description: z.string().trim().max(2000).optional(),
@@ -75,12 +79,19 @@ export const spaceCreateSchema: z.ZodType<SpaceCreateInput> = z
   .strict()
 
 export const spaceUpdateSchema: z.ZodType<SpaceUpdateInput> = spaceCreateSchema
+  .omit({ isActive: true })
   .partial()
   .strict()
   .refine(
     (space: SpaceUpdateInput): boolean => Object.keys(space).length > 0,
     { message: 'Debes enviar al menos un campo para actualizar' }
   )
+
+export const spaceIdSchema: z.ZodType<SpaceIdInput> = z
+  .object({
+    id: z.string().uuid('El identificador del espacio no es válido'),
+  })
+  .strict()
 
 export const bookingCreateSchema: z.ZodType<BookingCreateInput> = z
   .object({

@@ -1,11 +1,14 @@
 import type { User } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AppError, errorResponse } from '@/lib/errors'
+import { loginSchema } from '@/lib/validations'
 import {
   verifyPassword,
   hashToken,
   generateAccessToken,
   generateRefreshToken,
+  getRefreshTokenExpiresAt,
   getCookieOptions,
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
@@ -13,46 +16,18 @@ import {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body: unknown = await request.json()
-
-    if (
-      typeof body !== 'object' ||
-      body === null ||
-      !('email' in body) ||
-      typeof body.email !== 'string' ||
-      !('password' in body) ||
-      typeof body.password !== 'string' ||
-      body.email.trim().length === 0 ||
-      body.password.length === 0
-    ) {
-      return NextResponse.json(
-        { error: 'Debe ingresar correo y contraseña' },
-        { status: 400 }
-      )
-    }
-
-    const email: string = body.email
-    const password: string = body.password
-    const normalizedEmail: string = email.toLowerCase().trim()
+    const body: unknown = await request.json().catch((): undefined => undefined)
+    const input = loginSchema.parse(body)
+    const normalizedEmail: string = input.email
 
     const user: User | null = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Credenciales inválidas' },
-        { status: 401 }
-      )
-    }
+    if (!user) throw new AppError('UNAUTHORIZED', 'Credenciales inválidas')
 
-    const isMatch: boolean = await verifyPassword(password, user.password)
-    if (!isMatch) {
-      return NextResponse.json(
-        { error: 'Credenciales inválidas' },
-        { status: 401 }
-      )
-    }
+    const isMatch: boolean = await verifyPassword(input.password, user.password)
+    if (!isMatch) throw new AppError('UNAUTHORIZED', 'Credenciales inválidas')
 
     // Generar tokens
     const accessToken: string = await generateAccessToken({
@@ -64,7 +39,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const refreshToken: string = await generateRefreshToken({ userId: user.id })
     const tokenHash: string = hashToken(refreshToken)
-    const expiresAt: Date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    const expiresAt: Date = getRefreshTokenExpiresAt()
 
     // Almacenar refresh token hasheado en BD
     await prisma.refreshToken.create({
@@ -91,9 +66,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return response
   } catch (error: unknown) {
     console.error('Error in /api/auth/login:', error)
-    return NextResponse.json(
-      { error: 'Ocurrió un error inesperado al iniciar sesión' },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }

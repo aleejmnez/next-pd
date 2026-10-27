@@ -8,26 +8,23 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-[#090d16] text-slate-100 relative overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-amber-500/10 blur-[130px] pointer-events-none rounded-full" />
-
+    <div className="min-h-screen flex flex-col justify-between bg-[#F4F7F4] text-slate-800">
       {/* Top Header with Back to Home Link */}
       <header className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between relative z-10">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors group"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-emerald-800 transition-colors group"
         >
-          <ArrowLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+          <ArrowLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 group-hover:text-emerald-700 transition-transform" />
           <span>Volver al Inicio</span>
         </Link>
 
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-slate-950 font-black shadow-md shadow-amber-500/20">
+          <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-black shadow-sm shadow-emerald-900/10">
             <Building2 className="w-4 h-4" />
           </div>
-          <span className="font-extrabold text-base tracking-tight text-white">
-            Co<span className="text-amber-400">Space</span>
+          <span className="font-extrabold text-base tracking-tight text-slate-900">
+            Co<span className="text-emerald-700">Space</span>
           </span>
         </div>
       </header>
@@ -40,7 +37,7 @@ export default function AuthLayout({
       </main>
 
       {/* Simple Footer */}
-      <footer className="py-6 text-center text-xs text-slate-500 relative z-10">
+      <footer className="py-6 text-center text-xs text-slate-600">
         <p>© 2026 CoSpace. Reservas de coworking por horas.</p>
       </footer>
     </div>

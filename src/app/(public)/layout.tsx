@@ -9,7 +9,7 @@ export default function PublicLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-[#090d16] text-slate-100">
+    <div className="min-h-screen flex flex-col bg-(--background) text-(--foreground)">
       <Suspense fallback={<div className="h-20" aria-hidden="true" />}>
         <Navbar />
       </Suspense>
