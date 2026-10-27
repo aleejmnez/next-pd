@@ -1,0 +1,100 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+// ------------------------------------------------------
+// MODELOS
+// ------------------------------------------------------
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String
+  password  String    // Contraseña hasheada (bcrypt / argon2)
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relaciones
+  refreshTokens RefreshToken[]
+  bookings      Booking[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique // Hash SHA-256 del refresh token
+  userId    String
+  expiresAt DateTime  // Fecha de expiración del token
+  isRevoked Boolean   @default(false) // Para revocar tokens en logout
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRevoked])
+  @@map("refresh_tokens")
+}
+
+model Space {
+  id           String    @id @default(uuid())
+  name         String
+  description  String?
+  capacity     Int
+  pricePerHour Int
+  imageUrl     String?   // Para renderizar con next/image
+  isActive     Boolean   @default(true) // Indicador de estado activo/inactivo
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relaciones
+  bookings Booking[]
+
+  // Índice para filtrar espacios activos en el catálogo público
+  @@index([isActive])
+  @@map("spaces")
+}
+
+model Booking {
+  id         String        @id @default(uuid())
+  userId     String
+  spaceId    String
+  startTime  DateTime
+  endTime    DateTime
+  totalPrice Int           // Calculado estrictamente por el servidor (horas x precio)
+  status     BookingStatus @default(CONFIRMED)
+  cancelledAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  // Relaciones
+  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Restrict)
+
+  // Índices para optimizar las consultas de solapes y filtros por fecha
+  @@index([spaceId, status, startTime, endTime])
+  @@index([userId, status, startTime])
+  @@map("bookings")
+}
