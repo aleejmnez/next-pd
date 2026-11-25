@@ -1,6 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { Building2, ArrowLeft } from 'lucide-react'
+import { AuthHistoryGuard } from '@/components/auth/AuthHistoryGuard'
 
 export default function AuthLayout({
   children,
@@ -9,6 +10,8 @@ export default function AuthLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#F4F7F4] text-slate-800">
+      <AuthHistoryGuard />
+
       {/* Top Header with Back to Home Link */}
       <header className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between relative z-10">
         <Link

@@ -39,8 +39,13 @@ export default function LoginPage() {
         throw new Error(data.error || 'Error al iniciar sesión')
       }
 
-      // Ir al catálogo después del inicio de sesión
-      router.push('/spaces')
+      // Volver al destino protegido solicitado después del inicio de sesión
+      const nextPath: string | null = new URLSearchParams(window.location.search).get('next')
+      const safeNextPath: string =
+        nextPath?.startsWith('/') && !nextPath.startsWith('//')
+          ? nextPath
+          : '/spaces'
+      router.push(safeNextPath)
       router.refresh()
     } catch (error: unknown) {
       const errorMessage: string = error instanceof Error
